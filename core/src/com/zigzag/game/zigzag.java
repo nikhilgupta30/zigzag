@@ -2,50 +2,62 @@ package com.zigzag.game;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-
-import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Random;
-import java.math.*;
+
+import sun.rmi.runtime.Log;
+
 
 public class zigzag extends ApplicationAdapter {
-	SpriteBatch batch;
+	private SpriteBatch batch;
 
-	Random rand;
+	private Random rand;
 
-	int noOfPillars = 50;
-	Texture pillar[];
-	ArrayList<Integer> x;
-	ArrayList<Integer> y;
-	int x0 = 0;
-	int y0 = 0;
-	int xLast;
-	int yLast;
+	private int noOfPillars = 50;
+	private Texture pillar[];
+	private ArrayList<Integer> x;
+	private ArrayList<Integer> y;
+	private int x0 = 0;
+	private int y0 = 0;
+	private int xLast;
+	private int yLast;
 
-	ArrayList<Integer> xTop;
-	ArrayList<Integer> yTop;
-	int yDiff = 184;
-	int hTop = 130;
-	int wTop = 182;
+	private ArrayList<Integer> xTop;
+	private ArrayList<Integer> yTop;
+	private int yDiff = 184;
+	private int hTop = 130;
+	private int wTop = 182;
 
-	int xNext = 91;
-	int yNext = 65;
+	private int xNext = 91;
+	private int yNext = 65;
 
-	int pillarVelocity = 6;
+	private int pillarVelocity = 6;
 
-	Texture ball;
-	int ballX;
-	int ballY;
-	int ballVelocity = 8;
+	private Texture ball;
+	private int ballX;
+	private int ballY;
+	private int ballVelocity = 8;
 
-	int gameState = 0;
+	private int gameState = 0;
 
-	Texture gameOver;
+	private Texture gameOver;
+	private Texture score;
+	private int gameOverVelocityX = 5;
+	private int gameOverVelocityY = 2;
+	private int gameOverGravity = 1;
 
-	int score = 0;
+	int prevPillar = 0;
+
+	private int userScore;
+	private BitmapFont fontScore;
+	private Sprite retry;
 
 	@Override
 	public void create () {
@@ -67,11 +79,36 @@ public class zigzag extends ApplicationAdapter {
 		ball = new Texture("ball.png");
 
 		gameOver = new Texture("gameover.png");
+		score = new Texture("score.png");
+
+		fontScore = new BitmapFont();
+		fontScore.setColor(Color.BLACK);
+		fontScore.getData().setScale(5);
+
+		retry = new Sprite(new Texture(Gdx.files.internal("retry.png")));
+
+		retry.setBounds( Gdx.graphics.getWidth()/2 - retry.getWidth()/2,
+				Gdx.graphics.getHeight()/4 - retry.getHeight()/2,
+				retry.getWidth(),
+				retry.getHeight());
+
+		Gdx.input.setInputProcessor(new InputAdapter(){
+			@Override
+			public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+
+				if(retry.getBoundingRectangle().contains(screenX, screenY)) {
+					startGame();
+					gameState = 0;
+				}
+				return true;
+			}
+
+		});
 
 		startGame();
 	}
 
-	public void startGame(){
+	private void startGame(){
 
 		x.clear();
 		y.clear();
@@ -116,6 +153,11 @@ public class zigzag extends ApplicationAdapter {
 		ballX = Gdx.graphics.getWidth()/2;
 		ballY = Gdx.graphics.getHeight()/3;
 
+		ballVelocity = 8;
+		gameOverVelocityY = 2;
+
+		userScore  = 0;
+
 	}
 
 	@Override
@@ -136,7 +178,7 @@ public class zigzag extends ApplicationAdapter {
 			if(Gdx.input.justTouched()){
 
 				ballVelocity *= -1;
-				score++;
+				userScore++;
 
 			}
 
@@ -179,32 +221,75 @@ public class zigzag extends ApplicationAdapter {
 
 		}
 		else{											// game over
-			if(Gdx.input.justTouched()){
-				gameState =0;
-				ballVelocity = 8;
-				startGame();
+			if(ballY > -100){
+				ballY -= gameOverVelocityY;
+				gameOverVelocityY += gameOverGravity;
+				if(ballVelocity > 0){
+					ballX += gameOverVelocityX;
+				}
+				else{
+					ballX -= gameOverVelocityX;
+				}
 			}
+
+			if(Gdx.input.justTouched()){
+				startGame();
+				gameState = 0;
+			}
+
 		}
 
+		if(gameState==2) {
 
-		/**
-		 * draw all the pillars
-		 */
-		for (int i = noOfPillars - 1; i >= 0; i--) {
-			batch.draw(pillar[i], x.get(i), y.get(i));
+			/**
+			 * draw pillars above the ball
+			 */
+			for (int i = noOfPillars-1; i > prevPillar; i--) {
+				batch.draw(pillar[i], x.get(i), y.get(i));
+			}
+
+
+			/**
+			 * draw the ball
+			 */
+			batch.draw(ball, ballX - ball.getWidth() / 2, ballY);
+
+
+			/**
+			 * draw pillars below the ball
+			 */
+			for (int i = prevPillar; i >= 0; i--) {
+				batch.draw(pillar[i], x.get(i), y.get(i));
+			}
+
 		}
+		else{
+
+			/**
+			 * draw all the pillars
+			 */
+			for (int i = noOfPillars - 1; i >= 0; i--) {
+				batch.draw(pillar[i], x.get(i), y.get(i));
+			}
+
+			/**
+			 * draw the ball
+			 */
+			batch.draw(ball, ballX - ball.getWidth() / 2, ballY);
 
 
-		/**
-		 * draw the ball
-		 */
-		batch.draw(ball, ballX - ball.getWidth() / 2, ballY);
+			/**
+			 * displaying the score
+			 */
+			fontScore.draw(batch,String.valueOf(userScore),50,100);
 
+		}
 
 		/**
 		 *  checking whether ball is out of track
 		 */
 		if(gameState==1) {
+
 			boolean over = true;
 			for (int i = 0; i < noOfPillars; i++) {
 
@@ -232,6 +317,7 @@ public class zigzag extends ApplicationAdapter {
 				p.y = ballY;
 
 				if(isInside(polygon,4,p)){
+					prevPillar = i;
 					over = false;
 					break;
 				}
@@ -250,15 +336,36 @@ public class zigzag extends ApplicationAdapter {
 		if(gameState==2){
 			batch.draw(gameOver,Gdx.graphics.getWidth()/2-gameOver.getWidth()/2,
 					Gdx.graphics.getHeight()*3/5);
-//			fontScore.getData().setScale(10);
-//			fontScore.draw(batch,String.valueOf(score),
-//					Gdx.graphics.getWidth()/2-50,
-//					Gdx.graphics.getHeight()/2-50);
+
+			batch.draw(score,Gdx.graphics.getWidth()/2-score.getWidth()/2,
+					Gdx.graphics.getHeight()*2/5 + 25);
+
+			if(userScore < 10) {
+				fontScore.draw(batch, String.valueOf(userScore),
+						Gdx.graphics.getWidth() / 2 - 50 + 25,
+						Gdx.graphics.getHeight() / 2 - 50);
+			}
+			else if(userScore>99){
+				fontScore.draw(batch, String.valueOf(userScore),
+						Gdx.graphics.getWidth() / 2 - 50 - 25,
+						Gdx.graphics.getHeight() / 2 - 50);
+			}
+			else{
+				fontScore.draw(batch, String.valueOf(userScore),
+						Gdx.graphics.getWidth() / 2 - 50 ,
+						Gdx.graphics.getHeight() / 2 - 50);
+			}
+
+			retry.draw(batch);
 		}
 
 		batch.end();
 	}
 
+
+	/**
+	 *	functions checking if the ball  is inside the track
+	 */
 	private boolean isInside(point polygon[],int n,point p){
 		point extreme = new point();
 		extreme.x = Gdx.graphics.getWidth();
